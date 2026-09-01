@@ -12,6 +12,8 @@ import io.github.jbellis.jvector.vector.VectorizationProvider;
 import io.github.jbellis.jvector.vector.types.VectorFloat;
 import io.github.jbellis.jvector.vector.types.VectorTypeSupport;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.apache.lucene.index.FloatVectorValues;
 import org.apache.lucene.search.VectorScorer;
 
@@ -19,6 +21,7 @@ public class JVectorFloatVectorValues extends FloatVectorValues {
     public static final int NO_VECTOR = -1;
     static final VectorTypeSupport VECTOR_TYPE_SUPPORT = VectorizationProvider.getInstance().getVectorTypeSupport();
 
+    private final OnDiskGraphIndex index;
     private final OnDiskGraphIndex.View view;
     private final VectorSimilarityFunction similarityFunction;
     private final org.apache.lucene.index.VectorSimilarityFunction luceneSimilarityFunction;
@@ -26,6 +29,7 @@ public class JVectorFloatVectorValues extends FloatVectorValues {
     private final int size;
     private final GraphNodeIdToDocMap graphNodeIdToDocMap;
     private final JVectorIndexQuantization quantization;
+    private AtomicBoolean prefetched = new AtomicBoolean();
 
     public JVectorFloatVectorValues(
         OnDiskGraphIndex onDiskGraphIndex,
@@ -43,6 +47,7 @@ public class JVectorFloatVectorValues extends FloatVectorValues {
         GraphNodeIdToDocMap graphNodeIdToDocMap,
         JVectorIndexQuantization quantization
     ) throws IOException {
+        this.index = onDiskGraphIndex;
         this.view = onDiskGraphIndex.getView();
         this.dimension = view.dimension();
         this.size = view.size();
@@ -190,4 +195,10 @@ public class JVectorFloatVectorValues extends FloatVectorValues {
         return new JVectorVectorScorer(this, VECTOR_TYPE_SUPPORT.createFloatVector(query), similarityFunction, luceneSimilarityFunction);
     }
 
+    @Override
+    public void prefetch(int[] ordsToPrefetch, int numOrds) throws IOException {
+        if (prefetched.compareAndSet(false, true) == true) {
+            index.prefetchL0Records(0, size());
+        }
+    }
 }

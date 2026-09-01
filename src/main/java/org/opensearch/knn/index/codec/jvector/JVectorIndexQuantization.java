@@ -31,6 +31,8 @@ import org.opensearch.knn.common.KNNConstants;
 import org.opensearch.knn.plugin.stats.KNNCounter;
 
 import static io.github.jbellis.jvector.quantization.KMeansPlusPlusClusterer.UNWEIGHTED;
+import static org.opensearch.knn.index.codec.jvector.JVectorIndexQuantization.computeNvqVectors;
+import static org.opensearch.knn.index.codec.jvector.JVectorIndexQuantization.computePqVectors;
 
 /**
  * Encapsulates the quantization strategy used when writing a jVector segment.

@@ -119,7 +119,7 @@ public class JVectorReader extends KnnVectorsReader {
 
     public RandomAccessReader getNeighborsScoreCacheForField(String field) throws IOException {
         final FieldEntry fieldEntry = fieldEntryMap.get(field);
-        return fieldEntry.neighborsScoreCacheIndexReaderSupplier.get();
+        return fieldEntry.getNeighborsScoreCacheReader();
     }
 
     public OnDiskGraphIndex getOnDiskGraphIndex(String field) throws IOException {
@@ -276,7 +276,7 @@ public class JVectorReader extends KnnVectorsReader {
         private final GraphNodeIdToDocMap graphNodeIdToDocMap;
         private final ReaderSupplier indexReaderSupplier;
         private final ReaderSupplier compressedVectorsReaderSupplier;
-        private final ReaderSupplier neighborsScoreCacheIndexReaderSupplier;
+        private ReaderSupplier neighborsScoreCacheIndexReaderSupplier;
         private final OnDiskGraphIndex index;
         private final PQVectors pqVectors; // non-null when a PQ blob is present (PQ-only or NVQ+PQ)
         // NVQuantization extracted from the graph when NVQ is stored inline; null otherwise
@@ -331,10 +331,7 @@ public class JVectorReader extends KnnVectorsReader {
             this.pqVectors = qs.pqVectors();
             this.compressedVectorsReaderSupplier = qs.compressedVectorsReaderSupplier();
 
-            final IndexInput indexInput = directory.openInput(neighborsScoreCacheIndexFieldFileName, state.context);
-            CodecUtil.readIndexHeader(indexInput);
-
-            this.neighborsScoreCacheIndexReaderSupplier = new JVectorRandomAccessReader.Supplier(indexInput);
+            this.neighborsScoreCacheIndexReaderSupplier = null;
         }
 
         FloatVectorValues floatVectorValues() throws IOException {
@@ -363,6 +360,15 @@ public class JVectorReader extends KnnVectorsReader {
                     wrapExactScoreFunction(esf, fieldInfo.getVectorSimilarityFunction(), similarityFunction)
                 );
             }
+        }
+
+        RandomAccessReader getNeighborsScoreCacheReader() throws IOException {
+            if (neighborsScoreCacheIndexReaderSupplier == null) {
+                final IndexInput indexInput = directory.openInput(neighborsScoreCacheIndexFieldFileName, state.context);
+                CodecUtil.readIndexHeader(indexInput);
+                neighborsScoreCacheIndexReaderSupplier = new JVectorRandomAccessReader.Supplier(indexInput);
+            }
+            return neighborsScoreCacheIndexReaderSupplier.get();
         }
 
         @Override
